@@ -3,7 +3,7 @@
 namespace Codeages\Plumber;
 
 use Psr\Log\LoggerInterface;
-use Pheanstalk\Pheanstalk;
+use Codeages\Beanstalk\Client as BeanstalkClient;
 
 class ForwardWorker implements IWorker
 {

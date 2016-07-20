@@ -2,7 +2,6 @@
 
 namespace Codeages\Plumber;
 
-use Codeages\Plumber\BeanstalkClient;
 use swoole_table;
 use swoole_buffer;
 

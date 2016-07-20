@@ -2,7 +2,7 @@
 
 namespace Codeages\Plumber;
 
-use Codeages\Plumber\BeanstalkClient;
+use Codeages\Beanstalk\Client as BeanstalkClient;
 
 class TubeListener
 {

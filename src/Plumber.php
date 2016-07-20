@@ -3,7 +3,6 @@
 namespace Codeages\Plumber;
 
 use Codeages\Plumber\IWorker;
-use Codeages\Plumber\BeanstalkClient;
 use Codeages\Plumber\Logger;
 use Codeages\Plumber\ListenerStats;
 
