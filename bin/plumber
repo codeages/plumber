@@ -1,0 +1,25 @@
+#!/usr/bin/env php
+<?php
+
+$autoloader = require __DIR__.'/../src/composer_autoload.php';
+
+if (!$autoloader()) {
+    die('class autoloader not found.');
+}
+
+use Codeages\Plumber\Plumber;
+
+$config = include $argv[2];
+
+if (!empty($config['bootstrap'])) {
+    include $config['bootstrap'];
+}
+
+if (empty($argv[1]) || !in_array($argv[1], array('start', 'stop', 'restart', 'status')) ) {
+    echo "Please input: bin/plumber start|stop|restart|status\n";
+    exit();
+}
+
+$daemon = new Plumber($config);
+
+$daemon->main($argv[1]);

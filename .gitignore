@@ -1,0 +1,7 @@
+/composer.lock
+/composer.phar
+/example/tmp/*
+!/example/tmp/.gitkeep
+!/example/tmp/plumber.sock
+.DS_Store
+/vendor

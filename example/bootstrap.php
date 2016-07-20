@@ -1,0 +1,4 @@
+<?php
+
+// Worker bootstrap here.
+// 
