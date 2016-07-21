@@ -11,27 +11,27 @@ class ForwardWorker implements IWorker
 	protected $config;
 	protected $tubeName;
 	protected $delays = array(2,4,8);
+	protected $destQueue;
 
 	public function __construct($tubeName, $config) {
 		$this->config = $config;
 		$this->tubeName = $tubeName;
+
+		$config = $this->config['destination'];
+		$config['persistent'] = true;
+
+		$this->destQueue = new BeanstalkClient($config);
+		$this->destQueue->connect();
+		$this->destQueue->useTube($tubeName);
 	}
 
 	public function execute($job)
 	{
 		try{
 			$body = $job['body'];
-			$config = $this->config['destination'];
-			$config['persistent'] = false;
-
-			$queue = new BeanstalkClient($config);
-			$queue->connect();
 
 			$tubeName = isset($this->config['destination']['tubeName']) ? $this->config['destination']['tubeName'] : $this->tubeName;
-			$queue->useTube($tubeName);
-
-			$this->logger->info("use tube host:{$this->config['destination']['host']} port:{$this->config['destination']['port']} tube:{$tubeName} ");
-
+			
 			$pri = isset($this->config['pri']) ? $this->config['pri']: 0;
 			$delay = isset($this->config['delay']) ? $this->config['delay']: 0;
 			$ttr = isset($this->config['ttr']) ? $this->config['ttr']: 60;
@@ -40,8 +40,7 @@ class ForwardWorker implements IWorker
 	            unset($body['retry']);
 	        }
 
-			$queue->put($pri, $delay, $ttr, json_encode($body));
-			$queue->disconnect();
+			$this->destQueue->put($pri, $delay, $ttr, json_encode($body));
 			
 			$this->logger->info("put job to host:{$this->config['destination']['host']} port:{$this->config['destination']['port']} tube:{$tubeName} ", $body);
 

@@ -21,7 +21,7 @@
     "require": {
         "php": ">=5.4.1",
         "ext-swoole": ">=1.7.17",
-        "codeages/beanstalk-client" : "^0.1.1",
+        "codeages/beanstalk-client" : "^0.1.2",
         "psr/log": "^1.0.0"
     },
     "bin": ["bin/plumber"]

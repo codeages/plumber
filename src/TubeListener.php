@@ -3,6 +3,7 @@
 namespace Codeages\Plumber;
 
 use Codeages\Beanstalk\Client as BeanstalkClient;
+use Codeages\Beanstalk\ClientProxy as BeanstalkClientProxy;
 
 class TubeListener
 {
@@ -32,7 +33,13 @@ class TubeListener
         $tubeName = $this->tubeName;
         $process = $this->process;
         $logger = $this->logger;
-        $queue = $this->queue = new BeanstalkClient($this->config['message_server']);
+
+        $options = $this->config['message_server'];
+        $options['socket_timeout'] = $this->config['reserve_timeout'] * 2;
+
+        $queue = new BeanstalkClient($options);
+        $queue = new BeanstalkClientProxy($queue, $logger);
+        $this->queue = $queue;
 
         $connected = $queue->connect();
         if (!$connected) {
@@ -55,9 +62,27 @@ class TubeListener
             return ;
         }
 
+        $queue->ignore('default');
+
         $logger->info("tube({$tubeName}, #{$process->pid}): watching.");
 
         return true;
+    }
+
+    public function onErrorShutDown()
+    {
+        $error = error_get_last();
+        $this->logger->error('shutdown error', $error);
+    }
+
+    public function onErrorHandle($errno, $errstr, $errfile, $errline)
+    {
+        $error = array(
+            'message' => $errstr,
+            'file' => $errfile,
+            'line' => $errline,
+        );
+        $this->logger->error('user error', $error);
     }
 
     public function loop()
@@ -67,6 +92,9 @@ class TubeListener
         $logger = $this->logger;
         $process = $this->process;
         $worker = $this->createQueueWorker($tubeName);
+
+        register_shutdown_function(array($this, 'onErrorShutDown'));
+        set_error_handler(array($this, 'onErrorHandle'), E_USER_ERROR);
 
         while(true) {
             $this->stats->touch($tubeName, $process->pid, false, 0);
@@ -107,10 +135,7 @@ class TubeListener
                 default:
                     break;
             }
-
         }
-
-
     }
 
     private function reserveJob()
@@ -123,45 +148,19 @@ class TubeListener
         if ($this->times % 10 === 0) {
             $logger->info("tube({$tubeName}, #{$process->pid}): reserving {$this->times} times.");
         }
-        $job = $queue->reserve($this->config['reserve_timeout']);
-        $this->times ++;
 
+        $job = false;
+        try {
+            $job = $queue->reserve($this->config['reserve_timeout']);
+        } catch(\Exception $e) {
+            $logger->error('TubeListernerException:' . $e->getMessage());
+            $this->process->exit(1);
+        }
+
+        $this->times ++;
         $this->stats->touch($tubeName, $process->pid, true, empty($job['id']) ? 0 : $job['id']);
 
         if (!$job) {
-            $error = $queue->getLatestError();
-            $exit = false;
-            switch ($error) {
-                case 'DEADLINE_SOON':
-                    $logger->notice("tube({$tubeName}, #{$process->pid}): reserved DEADLINE_SOON.");
-                    break;
-                case 'TIMED_OUT':
-                    break;
-                default:
-                    $retry = 3;
-                    while($retry) {
-                        $connected = $queue->connect();
-                        if ($connected) {
-                            $logger->info("tube({$tubeName}, #{$process->pid}): reconnected.");
-                            break;
-                        }
-
-                        $logger->info("tube({$tubeName}, #{$process->pid}): retry connection #{$retry}.");
-
-                        $retry -- ;
-                        sleep(1);
-                    }
-
-                    if ($retry === 0) {
-                        $logger->critical("tube({$tubeName}, #{$process->pid}): retry connection failed.");
-                        $exit = true;
-                    }
-                    break;
-            }
-
-            if ($exit) {
-                $this->process->exit(1);
-            }
             return null;
         }
 
@@ -184,7 +183,6 @@ class TubeListener
         if (!$deleted) {
             $logger->error("tube({$tubeName}, #{$process->pid}): job #{$job['id']} delete failed, in successful executed.", $job);
         }
-
     }
 
     private function retryJob($job, $result)
