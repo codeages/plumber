@@ -94,7 +94,7 @@ class TubeListener
         $worker = $this->createQueueWorker($tubeName);
 
         register_shutdown_function(array($this, 'onErrorShutDown'));
-        set_error_handler(array($this, 'onErrorHandle'), E_USER_ERROR);
+        set_error_handler(array($this, 'onErrorHandle'));
 
         while(true) {
             $this->stats->touch($tubeName, $process->pid, false, 0);

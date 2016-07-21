@@ -11,7 +11,7 @@ $config['persistent'] = false;
 $beanstalk = new BeanstalkClient($config);
 
 $beanstalk->connect();
-$beanstalk->useTube('Example3');
+$beanstalk->useTube('Example1');
 
 $i=0;
 
