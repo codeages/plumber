@@ -197,10 +197,10 @@ class TubeListener
         $process = $this->process;
 
         $message = $job['body'];
-        if (!isset($message['retry'])) {
-            $message['retry'] = 0;
+        if (!isset($message['__retry'])) {
+            $message['__retry'] = 0;
         } else {
-            $message['retry'] = $message['retry'] + 1;
+            $message['__retry'] = $message['__retry'] + 1;
         }
         $stats = $queue->statsJob($job['id']);
         if ($stats === false) {
@@ -208,7 +208,7 @@ class TubeListener
             return;
         }
 
-        $logger->info("tube({$tubeName}, #{$process->pid}): job #{$job['id']} retry {$message['retry']} times.");
+        $logger->info("tube({$tubeName}, #{$process->pid}): job #{$job['id']} retry {$message['__retry']} times.");
         $deleted = $queue->delete($job['id']);
         if (!$deleted) {
             $logger->error("tube({$tubeName}, #{$process->pid}): job #{$job['id']} delete failed, in retry executed.", $job);
