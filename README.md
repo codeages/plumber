@@ -44,6 +44,10 @@ vendor/bin/plumber stop /config-path
 
 请参考[src/IWorker.php](src/IWorker.php)。
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
 MIT.
