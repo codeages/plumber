@@ -4,6 +4,7 @@ namespace Codeages\Plumber;
 
 use Codeages\Beanstalk\Client as BeanstalkClient;
 use Codeages\Beanstalk\ClientProxy as BeanstalkClientProxy;
+use Codeages\Beanstalk\Exception\DeadlineSoonException;
 
 class TubeListener
 {
@@ -152,6 +153,9 @@ class TubeListener
         $job = false;
         try {
             $job = $queue->reserve($this->config['reserve_timeout']);
+        } catch(DeadlineSoonException $e) {
+            $logger->info("tube({$tubeName}, #{$process->pid}): reserve job is deadline soon, sleep 2 seconds.");
+            sleep(2);
         } catch(\Exception $e) {
             $logger->error('TubeListernerException:' . $e->getMessage());
             $this->process->exit(1);
