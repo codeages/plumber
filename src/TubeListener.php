@@ -5,6 +5,7 @@ namespace Codeages\Plumber;
 use Codeages\Beanstalk\Client as BeanstalkClient;
 use Codeages\Beanstalk\ClientProxy as BeanstalkClientProxy;
 use Codeages\Beanstalk\Exception\DeadlineSoonException;
+use Monolog\ErrorHandler;
 
 class TubeListener
 {
@@ -42,48 +43,14 @@ class TubeListener
         $queue = new BeanstalkClientProxy($queue, $logger);
         $this->queue = $queue;
 
-        $connected = $queue->connect();
-        if (!$connected) {
-            $logger->critical("tube({$tubeName}, #{$process->pid}): worker start failed(connect queue failed), {$queue->getLatestError()}.");
-            $process->exit(1);
-            return ;
-        }
-
-        $watched = $queue->watch($tubeName);
-        if (!$watched) {
-            $logger->critical("tube({$tubeName}, #{$process->pid}): worker start failed(watch tube failed), {$queue->getLatestError()}.");
-            $process->exit(1);
-            return ;
-        }
-
-        $used = $queue->useTube($tubeName);
-        if (!$used) {
-            $logger->critical("tube({$tubeName}, #{$process->pid}): worker start failed(use tube failed), {$queue->getLatestError()}.");
-            $process->exit(1);
-            return ;
-        }
-
+        $queue->connect();
+        $queue->watch($tubeName);
+        $queue->useTube($tubeName);
         $queue->ignore('default');
 
         $logger->info("tube({$tubeName}, #{$process->pid}): watching.");
 
         return true;
-    }
-
-    public function onErrorShutDown()
-    {
-        $error = error_get_last();
-        $this->logger->error('shutdown error', $error);
-    }
-
-    public function onErrorHandle($errno, $errstr, $errfile, $errline)
-    {
-        $error = array(
-            'message' => $errstr,
-            'file' => $errfile,
-            'line' => $errline,
-        );
-        $this->logger->error('user error', $error);
     }
 
     public function loop()
@@ -93,9 +60,6 @@ class TubeListener
         $logger = $this->logger;
         $process = $this->process;
         $worker = $this->createQueueWorker($tubeName);
-
-        register_shutdown_function(array($this, 'onErrorShutDown'));
-        set_error_handler(array($this, 'onErrorHandle'));
 
         while(true) {
             $this->stats->touch($tubeName, $process->pid, false, 0);

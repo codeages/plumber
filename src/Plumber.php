@@ -3,8 +3,10 @@
 namespace Codeages\Plumber;
 
 use Codeages\Plumber\IWorker;
-use Codeages\Plumber\Logger;
 use Codeages\Plumber\ListenerStats;
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+use Monolog\ErrorHandler;
 
 use swoole_table;
 use swoole_process;
@@ -45,15 +47,15 @@ class Plumber
             return;
          }
 
-
         echo "plumber started.\n";
 
         if ($this->config['daemonize']) {
             swoole_process::daemon();
         }
 
-        $this->logger = new Logger(['log_path' => $this->config['log_path']]);
-        $this->output = new Logger(['log_path' => $this->config['output_path']]);
+        $this->logger = new Logger('plumber');
+        $this->logger->pushHandler(new StreamHandler($this->config['log_path']));
+        ErrorHandler::register($this->logger);
 
         $this->logger->info('plumber starting...');
         
@@ -77,7 +79,6 @@ class Plumber
                 }
             }
         });
-
     }
 
     protected function stop()
@@ -129,9 +130,7 @@ class Plumber
                 $worker->start();
 
                 swoole_event_add($worker->pipe, function($pipe) use ($worker) {
-                    $recv = $worker->read();
-                    $this->output->info($recv);
-                    echo "recv:" . $recv . " {$pipe} " .  "\n";
+                    $this->logger->info(sprintf('recv from pipie %s: %s', $pipe, $worker->read()));
                 });
 
                 $workers[$worker->pid] = $worker;
@@ -149,12 +148,14 @@ class Plumber
         return function($process) use ($tubeName, $stats) {
             $process->name("plumber: tube `{$tubeName}` task worker");
 
-            $listener = new TubeListener($tubeName, $process, $this->config, $this->logger, $stats);
-            $listener->connect();
-
-            $beanstalk = $listener->getQueue();
-
-            $listener->loop();
+            //@see https://github.com/swoole/swoole-src/issues/183
+            try {
+                $listener = new TubeListener($tubeName, $process, $this->config, $this->logger, $stats);
+                $listener->connect();
+                $listener->loop();
+            } catch (\Exception $e) {
+                $this->logger->error($e);
+            }
         };
     }
 
