@@ -21,10 +21,9 @@ interface IWorker
      */
     const RETRY = 'retry';
 
-
     /**
-     * Worker执行返回码：搁置
-     */    
+     * Worker执行返回码：搁置.
+     */
     const BURY = 'bury';
 
     public function execute($data);

@@ -3,7 +3,6 @@
 namespace Codeages\Plumber;
 
 use swoole_table;
-use swoole_buffer;
 
 class ListenerStats
 {
@@ -23,7 +22,7 @@ class ListenerStats
         $this->table = $table;
 
         $pids = new swoole_table(1);
-        $pids->column('pids', swoole_table::TYPE_STRING, $size*10);
+        $pids->column('pids', swoole_table::TYPE_STRING, $size * 10);
         $pids->create();
         $this->pids = $pids;
 
@@ -33,7 +32,6 @@ class ListenerStats
         $this->stoping = $stoping;
 
         $this->logger = $logger;
-
     }
 
     /**
@@ -53,8 +51,8 @@ class ListenerStats
                 'timeout' => 0,
             ));
 
-            $pids = $this->pids->get('data') ? : array('pids' => '');
-            $this->pids->set('data', array('pids' => $pids['pids']. $pid. ' '));
+            $pids = $this->pids->get('data') ?: array('pids' => '');
+            $this->pids->set('data', array('pids' => $pids['pids'].$pid.' '));
         } else {
             $this->table->set($key, array(
                 'count' => $incr ? ($stats['count'] + 1) : $stats['count'],
@@ -78,12 +76,13 @@ class ListenerStats
         if ($stats === false) {
             return array('count' => 0, 'last_update' => 0, 'tube' => '', 'job_id' => 0, 'timeout' => 0);
         }
+
         return $stats;
     }
 
     public function remove($pid)
     {
-        $pids = $this->pids->get('data') ? : array('pids' => '');
+        $pids = $this->pids->get('data') ?: array('pids' => '');
         $pids = trim($pids['pids']);
         $pids = empty($pids) ? array() : explode(' ', $pids);
 
@@ -98,12 +97,12 @@ class ListenerStats
         $newPids = implode(' ', $newPids);
         $this->pids->set('data', array('pids' => $newPids));
         // $this->table->del($this->getKey($pid));
-        return ;
+        return;
     }
 
     public function getAll()
     {
-        $pids = $this->pids->get('data') ? : array('pids' => '');
+        $pids = $this->pids->get('data') ?: array('pids' => '');
         $pids = trim($pids['pids']);
         $pids = empty($pids) ? array() : explode(' ', $pids);
 
@@ -111,6 +110,7 @@ class ListenerStats
         foreach ($pids as $pid) {
             $statses[$pid] = $this->get($pid);
         }
+
         return $statses;
     }
 
@@ -121,25 +121,25 @@ class ListenerStats
 
     public function isStoping()
     {
-        $stoping = $this->stoping->get('data') ? : array('status' => 0);
+        $stoping = $this->stoping->get('data') ?: array('status' => 0);
+
         return $stoping['status'] ? true : false;
     }
 
     private function getKey($pid)
     {
-        return 'p_' . $pid;
+        return 'p_'.$pid;
     }
 
     private function calTableSize($size)
     {
-        for($i=1; $i<=100; $i++) {
+        for ($i = 1; $i <= 100; ++$i) {
             $tableSize = pow(2, $i);
             if ($tableSize >= $size) {
                 return $tableSize;
             }
         }
 
-        throw new \RuntimeException("");
+        throw new \RuntimeException('');
     }
-
 }

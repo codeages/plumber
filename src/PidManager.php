@@ -16,6 +16,7 @@ class PidManager
         if (!file_exists($this->path)) {
             return 0;
         }
+
         return intval(file_get_contents($this->path));
     }
 

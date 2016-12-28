@@ -2,13 +2,9 @@
 
 namespace Codeages\Plumber;
 
-use Codeages\Plumber\IWorker;
-use Codeages\Plumber\ListenerStats;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 use Monolog\ErrorHandler;
-
-use swoole_table;
 use swoole_process;
 
 class Plumber
@@ -42,10 +38,11 @@ class Plumber
 
     protected function start()
     {
-         if ($this->pidManager->get()) {
+        if ($this->pidManager->get()) {
             echo "ERROR: plumber is already running.\n";
+
             return;
-         }
+        }
 
         echo "plumber started.\n";
 
@@ -58,7 +55,7 @@ class Plumber
         ErrorHandler::register($this->logger);
 
         $this->logger->info('plumber starting...');
-        
+
         $this->stats = $stats = $this->createListenerStats();
 
         swoole_set_process_name('plumber: master');
@@ -67,14 +64,14 @@ class Plumber
 
         $this->pidManager->save(posix_getpid());
 
-        swoole_timer_tick(1000, function($timerId) {
+        swoole_timer_tick(1000, function ($timerId) {
             $statses = $this->stats->getAll();
             foreach ($statses as $pid => $s) {
-                if ( ($s['last_update'] + $this->config['reserve_timeout'] + $this->config['execute_timeout']) > time()) {
+                if (($s['last_update'] + $this->config['reserve_timeout'] + $this->config['execute_timeout']) > time()) {
                     continue;
                 }
                 if (!$s['timeout']) {
-                    $this->logger->notice("process #{$pid} last upadte at ". date('Y-m-d H:i:s') . ', it is timeout.', $s);
+                    $this->logger->notice("process #{$pid} last upadte at ".date('Y-m-d H:i:s').', it is timeout.', $s);
                     $this->stats->timeout($pid);
                 }
             }
@@ -86,12 +83,13 @@ class Plumber
         $pid = $this->pidManager->get();
         if (empty($pid)) {
             echo "plumber is not running...\n";
-            return ;
+
+            return;
         }
 
-        echo "plumber is stoping....";
+        echo 'plumber is stoping....';
         exec("kill -15 {$pid}");
-        while(1) {
+        while (1) {
             if ($this->pidManager->get()) {
                 sleep(1);
                 continue;
@@ -115,21 +113,22 @@ class Plumber
         foreach ($this->config['tubes'] as $tubeName => $tubeConfig) {
             $size += $tubeConfig['worker_num'];
         }
+
         return new ListenerStats($size, $this->logger);
     }
 
     /**
-     * 创建队列的监听器
+     * 创建队列的监听器.
      */
     private function createWorkers($stats)
     {
         $workers = [];
         foreach ($this->config['tubes'] as $tubeName => $tubeConfig) {
-            for($i=0; $i<$tubeConfig['worker_num']; $i++) {
+            for ($i = 0; $i < $tubeConfig['worker_num']; ++$i) {
                 $worker = new \swoole_process($this->createTubeLoop($tubeName, $stats), true);
                 $worker->start();
 
-                swoole_event_add($worker->pipe, function($pipe) use ($worker) {
+                swoole_event_add($worker->pipe, function ($pipe) use ($worker) {
                     $this->logger->info(sprintf('recv from pipie %s: %s', $pipe, $worker->read()));
                 });
 
@@ -141,11 +140,11 @@ class Plumber
     }
 
     /**
-     * 创建队列处理Loop
+     * 创建队列处理Loop.
      */
     private function createTubeLoop($tubeName, $stats)
     {
-        return function($process) use ($tubeName, $stats) {
+        return function ($process) use ($tubeName, $stats) {
             $process->name("plumber: tube `{$tubeName}` task worker");
 
             //@see https://github.com/swoole/swoole-src/issues/183
@@ -161,8 +160,8 @@ class Plumber
 
     private function registerSignal()
     {
-        swoole_process::signal(SIGCHLD, function() {
-            while(1) {
+        swoole_process::signal(SIGCHLD, function () {
+            while (1) {
                 $ret = swoole_process::wait(false);
                 if (!$ret) {
                     break;
@@ -173,19 +172,19 @@ class Plumber
             }
         });
 
-        $softkill = function($signo) {
+        $softkill = function ($signo) {
             if ($this->state == 'stoping') {
-                return ;
+                return;
             }
             $this->state = 'stoping';
-            $this->logger->info("plumber is stoping....");
+            $this->logger->info('plumber is stoping....');
 
             $this->stats->stop();
 
             // 确保worker进程都退出后，再退出主进程
-            swoole_timer_tick(1000, function($timerId) {
+            swoole_timer_tick(1000, function ($timerId) {
                 if (!empty($this->workers)) {
-                    return ;
+                    return;
                 }
                 swoole_timer_clear($timerId);
                 $this->pidManager->clear();

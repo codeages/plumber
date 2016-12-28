@@ -5,7 +5,6 @@ namespace Codeages\Plumber;
 use Codeages\Beanstalk\Client as BeanstalkClient;
 use Codeages\Beanstalk\ClientProxy as BeanstalkClientProxy;
 use Codeages\Beanstalk\Exception\DeadlineSoonException;
-use Monolog\ErrorHandler;
 
 class TubeListener
 {
@@ -61,7 +60,7 @@ class TubeListener
         $process = $this->process;
         $worker = $this->createQueueWorker($tubeName);
 
-        while(true) {
+        while (true) {
             $this->stats->touch($tubeName, $process->pid, false, 0);
             $stoping = $this->stats->isStoping();
 
@@ -79,7 +78,7 @@ class TubeListener
             try {
                 $result = $worker->execute($job);
                 $this->stats->touch($tubeName, $process->pid, false, 0);
-            } catch(\Exception $e) {
+            } catch (\Exception $e) {
                 $message = sprintf('tube({$tubeName}, #%d): execute job #%d exception, `%s`', $process->pid, $job['id'], $e->getMessage());
                 $logger->error($message, $job);
                 continue;
@@ -117,19 +116,19 @@ class TubeListener
         $job = false;
         try {
             $job = $queue->reserve($this->config['reserve_timeout']);
-        } catch(DeadlineSoonException $e) {
+        } catch (DeadlineSoonException $e) {
             $logger->info("tube({$tubeName}, #{$process->pid}): reserve job is deadline soon, sleep 2 seconds.");
             sleep(2);
-        } catch(\Exception $e) {
-            $logger->error('TubeListernerException:' . $e->getMessage());
+        } catch (\Exception $e) {
+            $logger->error('TubeListernerException:'.$e->getMessage());
             $this->process->exit(1);
         }
 
-        $this->times ++;
+        ++$this->times;
         $this->stats->touch($tubeName, $process->pid, true, empty($job['id']) ? 0 : $job['id']);
 
         if (!$job) {
-            return null;
+            return;
         }
 
         $job['body'] = json_decode($job['body'], true);
@@ -169,6 +168,7 @@ class TubeListener
         $stats = $queue->statsJob($job['id']);
         if ($stats === false) {
             $logger->error("tube({$tubeName}, #{$process->pid}): job #{$job['id']} get stats failed, in retry executed.", $job);
+
             return;
         }
 
@@ -176,6 +176,7 @@ class TubeListener
         $deleted = $queue->delete($job['id']);
         if (!$deleted) {
             $logger->error("tube({$tubeName}, #{$process->pid}): job #{$job['id']} delete failed, in retry executed.", $job);
+
             return;
         }
 
@@ -186,11 +187,11 @@ class TubeListener
         $puted = $queue->put($pri, $delay, $ttr, json_encode($message));
         if (!$puted) {
             $logger->error("tube({$tubeName}, #{$process->pid}): job #{$job['id']} reput failed, in retry executed.", $job);
+
             return;
         }
 
         $logger->info("tube({$tubeName}, #{$process->pid}): job #{$job['id']} reputed, new job id is #{$puted}");
-
     }
 
     private function buryJob($job, $result)
@@ -203,6 +204,7 @@ class TubeListener
         $stats = $queue->statsJob($job['id']);
         if ($stats === false) {
             $logger->error("tube({$tubeName}, #{$process->pid}): job #{$job['id']} get stats failed, in bury executed.", $job);
+
             return;
         }
 
@@ -210,11 +212,11 @@ class TubeListener
         $burried = $queue->bury($job['id'], $pri);
         if ($burried === false) {
             $logger->error("tube({$tubeName}, #{$process->pid}): job #{$job['id']} bury failed", $job);
+
             return;
         }
 
         $logger->info("tube({$tubeName}, #{$process->pid}): job #{$job['id']} buried.");
-
     }
 
     private function createQueueWorker($name)
@@ -222,6 +224,7 @@ class TubeListener
         $class = $this->config['tubes'][$name]['class'];
         $worker = new $class($name, $this->config['tubes'][$name]);
         $worker->setLogger($this->logger);
+
         return $worker;
     }
 
@@ -229,5 +232,4 @@ class TubeListener
     {
         return $this->queue;
     }
-
 }
