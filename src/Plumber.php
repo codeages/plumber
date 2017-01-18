@@ -36,17 +36,21 @@ class Plumber
         $this->{$op}();
     }
 
-    protected function start()
+    protected function run()
+    {
+        $this->start(false);
+    }
+
+    protected function start($daemon = true)
     {
         if ($this->pidManager->get()) {
             echo "ERROR: plumber is already running.\n";
-
             return;
         }
 
         echo "plumber started.\n";
 
-        if ($this->config['daemonize']) {
+        if ($daemon) {
             swoole_process::daemon();
         }
 

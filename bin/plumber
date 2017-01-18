@@ -1,43 +1,49 @@
 #!/usr/bin/env php
 <?php
-use Codeages\Plumber\Plumber;
-
 $autoloader = require __DIR__.'/../src/composer_autoload.php';
-
 if (!$autoloader()) {
     die('class autoloader not found.');
 }
 
-array_shift($argv);
+use Codeages\Plumber\Plumber;
 
-$options = [];
-$argments = [];
-foreach ($argv as $arg) {
-    $arg = explode('=', $arg);
-    if ($arg[0][0] == '-') {
-        $key = trim($arg[0], '-');
-        $value = isset($arg[1]) ? $arg[1] : null;
-        $options[$key] = $value; 
-    } else {
-        $argments[] = $arg[0];
+$workDir = getcwd();
+$version = '0.6.0';
+$commands = ['run', 'start', 'restart', 'stop'];
+
+$usage = sprintf('%s (%s)  [--bootstrap=<file>]', $argv[0], implode('|', $commands));
+$doc = <<<DOC
+Plumber {$version}
+
+Usage:
+  {$usage}
+
+Options:
+  -h|--help    show this
+  -b <file> --bootstrap=<file>  Load configuration file [default: plumber.php]
+DOC;
+
+$args = \Docopt::handle($doc, array('version'=>'Naval Fate 2.0'));
+
+$cmd = null;
+foreach($commands as $c) {
+    if ($args[$c] === true) {
+        $cmd = $c;
+        break;
     }
 }
 
-if (isset($options['env'])) {
-    putenv("ENV={$options['env']}");
+$configFile = ($args['--bootstrap'][0] == '/') ? $args['--bootstrap'] : $workDir.'/'.$args['--bootstrap'];
+if (!file_exists($configFile)) {
+    echo "Error: bootstrap file `{$args['--bootstrap']}` is not exist.";
+    exit(1);
 }
 
-$config = include $argv[1];
-
-if (!empty($config['bootstrap'])) {
-    include $config['bootstrap'];
+$config = require $configFile;
+if (!$config instanceof \Pimple\Container ) {
+    echo "Error: bootstrap file is must return Pimple\Container config object.";
+    exit(2);
 }
 
-if (empty($argv[0]) || !in_array($argv[0], array('start', 'stop', 'restart', 'status')) ) {
-    echo "Please input: bin/plumber start|stop|restart|status\n";
-    exit();
-}
-
-$daemon = new Plumber($config);
-
-$daemon->main($argv[0]);
+$plumber = new Plumber($config);
+$plumber->main($cmd);

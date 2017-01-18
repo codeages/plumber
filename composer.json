@@ -6,7 +6,7 @@
     "homepage": "https://github.com/codeages/plumber",
     "license": "MIT",
     "autoload": {
-        "psr-4": { 
+        "psr-4": {
             "Codeages\\Plumber\\": "src/",
             "Codeages\\Plumber\\Tests\\": "tests/",
             "Codeages\\Plumber\\Example\\": "example/"
@@ -21,6 +21,8 @@
     "require": {
         "php": ">=5.4.1",
         "ext-swoole": ">=1.7.17",
+        "pimple/pimple": "^3",
+        "docopt/docopt": "^1",
         "codeages/beanstalk-client" : "^0.1.4",
         "monolog/monolog": "^1.22.0"
     },

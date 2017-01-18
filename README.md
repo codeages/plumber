@@ -12,29 +12,40 @@ Plumber
 ## 安装
 
 ```
-composer require footstones/plumber
+composer require codeages/plumber
 ```
 
 ## 使用
 
+```
+Plumber 0.6.0
+
+Usage:
+  bin/plumber (run|start|restart|stop)  [--bootstrap=<file>]
+
+Options:
+  -h|--help    show this
+  -b <file> --bootstrap=<file>  Load configuration file [default: plumber.php]
+```
+
 ### 启动
 ```
-vendor/bin/plumber start /config-path # config-path为配置文件的路径
-``` 
+bin/plumber start -b bootstrap-file-path   # `bootstrap-file-path`为启动配置文件路径
+```
 
 ### 重启
 ```
-vendor/bin/plumber restart /config-path
-``` 
+bin/plumber restart -b bootstrap-file-path
+```
 
 ### 停止
 ```
-vendor/bin/plumber stop /config-path
-``` 
+bin/plumber stop -b bootstrap-file-path
+```
 
-### 配置说明
+### Bootstrap启动配置文件说明
 
-请参考[example/config.php](example/config.php)文件。
+Bootstrap启动配置文件，必须返回`Pimple\Container`类型的配置对象，情参考[example/bootstrap.php](example/bootstrap.php)文件。
 
 ### Worker的写法
 

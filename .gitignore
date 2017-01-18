@@ -2,5 +2,6 @@
 /composer.phar
 /example/tmp/*
 !/example/tmp/.gitkeep
-.DS_Store
 /vendor
+.DS_Store
+.sonar
