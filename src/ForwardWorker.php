@@ -7,7 +7,8 @@ use Codeages\Beanstalk\Client as BeanstalkClient;
 
 class ForwardWorker implements IWorker
 {
-    protected $logger;
+    use ContainerAwareTrait;
+
     protected $config;
     protected $tubeName;
     protected $delays = array(2, 4, 8);
@@ -62,10 +63,5 @@ class ForwardWorker implements IWorker
 
             return IWorker::BURY;
         }
-    }
-
-    public function setLogger(LoggerInterface $logger)
-    {
-        $this->logger = $logger;
     }
 }

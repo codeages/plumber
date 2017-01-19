@@ -2,6 +2,7 @@
 
 namespace Codeages\Plumber;
 
+use Pimple\Container;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 use Monolog\ErrorHandler;
@@ -11,7 +12,7 @@ class Plumber
 {
     private $server;
 
-    private $config;
+    private $container;
 
     protected $logger;
 
@@ -25,10 +26,16 @@ class Plumber
 
     protected $state;
 
-    public function __construct($config)
+    public function __construct(Container $container)
     {
-        $this->config = $config;
-        $this->pidManager = new PidManager($this->config['pid_path']);
+        $this->container = $container;
+        $this->pidManager = new PidManager($this->container['pid_path']);
+
+        $logger = new Logger('plumber');
+        $logger->pushHandler(new StreamHandler($this->container['log_path']));
+        
+        $this->container['logger'] = $this->logger = $logger;
+        ErrorHandler::register($logger);
     }
 
     public function main($op)
@@ -54,10 +61,6 @@ class Plumber
             swoole_process::daemon();
         }
 
-        $this->logger = new Logger('plumber');
-        $this->logger->pushHandler(new StreamHandler($this->config['log_path']));
-        ErrorHandler::register($this->logger);
-
         $this->logger->info('plumber starting...');
 
         $this->stats = $stats = $this->createListenerStats();
@@ -71,7 +74,7 @@ class Plumber
         swoole_timer_tick(1000, function ($timerId) {
             $statses = $this->stats->getAll();
             foreach ($statses as $pid => $s) {
-                if (($s['last_update'] + $this->config['reserve_timeout'] + $this->config['execute_timeout']) > time()) {
+                if (($s['last_update'] + $this->container['reserve_timeout'] + $this->container['execute_timeout']) > time()) {
                     continue;
                 }
                 if (!$s['timeout']) {
@@ -114,7 +117,7 @@ class Plumber
     private function createListenerStats()
     {
         $size = 0;
-        foreach ($this->config['tubes'] as $tubeName => $tubeConfig) {
+        foreach ($this->container['tubes'] as $tubeName => $tubeConfig) {
             $size += $tubeConfig['worker_num'];
         }
 
@@ -127,7 +130,7 @@ class Plumber
     private function createWorkers($stats)
     {
         $workers = [];
-        foreach ($this->config['tubes'] as $tubeName => $tubeConfig) {
+        foreach ($this->container['tubes'] as $tubeName => $tubeConfig) {
             for ($i = 0; $i < $tubeConfig['worker_num']; ++$i) {
                 $worker = new \swoole_process($this->createTubeLoop($tubeName, $stats), true);
                 $worker->start();
@@ -153,7 +156,7 @@ class Plumber
 
             //@see https://github.com/swoole/swoole-src/issues/183
             try {
-                $listener = new TubeListener($tubeName, $process, $this->config, $this->logger, $stats);
+                $listener = new TubeListener($tubeName, $process, $this->container, $this->logger, $stats);
                 $listener->connect();
                 $listener->loop();
             } catch (\Exception $e) {

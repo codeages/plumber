@@ -3,22 +3,17 @@
 namespace Codeages\Plumber\Example;
 
 use Codeages\Plumber\IWorker;
-use Psr\Log\LoggerInterface;
+use Codeages\Plumber\ContainerAwareTrait;
 
 class Example1Worker implements IWorker
 {
+    use ContainerAwareTrait;
 
     public function execute($data)
     {
-        echo "I'm example 1 worker.\n";
+        $this->logger->info("I'm example 1 worker.");
 
-        // sleep(100);
         return array('code' => IWorker::FINISH);
-    }
-
-    public function setLogger(LoggerInterface $logger)
-    {
-
     }
 
 }

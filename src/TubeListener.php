@@ -14,17 +14,19 @@ class TubeListener
 
     protected $queue;
 
+    protected $container;
+
     protected $logger;
 
     protected $stats;
 
     protected $times = 0;
 
-    public function __construct($tubeName, $process, $config, $logger, $stats)
+    public function __construct($tubeName, $process, $container, $logger, $stats)
     {
         $this->tubeName = $tubeName;
         $this->process = $process;
-        $this->config = $config;
+        $this->container = $container;
         $this->logger = $logger;
         $this->stats = $stats;
     }
@@ -35,8 +37,8 @@ class TubeListener
         $process = $this->process;
         $logger = $this->logger;
 
-        $options = $this->config['message_server'];
-        $options['socket_timeout'] = $this->config['reserve_timeout'] * 2;
+        $options = $this->container['server'];
+        $options['socket_timeout'] = $this->container['reserve_timeout'] * 2;
 
         $queue = new BeanstalkClient($options);
         $queue = new BeanstalkClientProxy($queue, $logger);
@@ -115,7 +117,7 @@ class TubeListener
 
         $job = false;
         try {
-            $job = $queue->reserve($this->config['reserve_timeout']);
+            $job = $queue->reserve($this->container['reserve_timeout']);
         } catch (DeadlineSoonException $e) {
             $logger->info("tube({$tubeName}, #{$process->pid}): reserve job is deadline soon, sleep 2 seconds.");
             sleep(2);
@@ -221,9 +223,9 @@ class TubeListener
 
     private function createQueueWorker($name)
     {
-        $class = $this->config['tubes'][$name]['class'];
-        $worker = new $class($name, $this->config['tubes'][$name]);
-        $worker->setLogger($this->logger);
+        $class = $this->container['tubes'][$name]['class'];
+        $worker = new $class($name, $this->container['tubes'][$name]);
+        $worker->setContainer($this->container);
 
         return $worker;
     }

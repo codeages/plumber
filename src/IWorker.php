@@ -1,8 +1,7 @@
 <?php
-
 namespace Codeages\Plumber;
 
-use Psr\Log\LoggerInterface;
+use Pimple\Container;
 
 interface IWorker
 {
@@ -28,5 +27,5 @@ interface IWorker
 
     public function execute($data);
 
-    public function setLogger(LoggerInterface $logger);
+    public function setContainer(Container $container = null);
 }
