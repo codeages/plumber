@@ -1,0 +1,12 @@
+version: "2"
+services:
+    plumber:
+        build: .
+        volumes:
+            - .:/code
+        links:
+            - beanstalkd
+        environment:
+            - QUEUE_HOST=beanstalkd
+    beanstalkd:
+        image: schickling/beanstalkd:latest
