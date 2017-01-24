@@ -30,12 +30,6 @@ class Plumber
     {
         $this->container = $container;
         $this->pidManager = new PidManager($this->container['pid_path']);
-
-        $logger = new Logger('plumber');
-        $logger->pushHandler(new StreamHandler($this->container['log_path']));
-        
-        $this->container['logger'] = $this->logger = $logger;
-        ErrorHandler::register($logger);
     }
 
     public function main($op)
@@ -50,6 +44,15 @@ class Plumber
 
     protected function start($daemon = true)
     {
+        $logger = new Logger('plumber');
+        if ($daemon) {
+            $logger->pushHandler(new StreamHandler($this->container['log_path']));
+        } else {
+            $logger->pushHandler(new StreamHandler('php://output'));
+        }
+        $this->container['logger'] = $this->logger = $logger;
+        ErrorHandler::register($logger);
+
         if ($this->pidManager->get()) {
             echo "ERROR: plumber is already running.\n";
             return;
