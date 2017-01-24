@@ -26,6 +26,8 @@ class Plumber
 
     protected $state;
 
+    protected $daemon = false;
+
     public function __construct(Container $container)
     {
         $this->container = $container;
@@ -44,6 +46,7 @@ class Plumber
 
     protected function start($daemon = true)
     {
+        $this->daemon = $daemon;
         $logger = new Logger('plumber');
         if ($daemon) {
             $logger->pushHandler(new StreamHandler($this->container['log_path']));
@@ -132,14 +135,19 @@ class Plumber
      */
     private function createWorkers($stats)
     {
+        $daemon = $this->daemon;
         $workers = [];
         foreach ($this->container['tubes'] as $tubeName => $tubeConfig) {
             for ($i = 0; $i < $tubeConfig['worker_num']; ++$i) {
                 $worker = new \swoole_process($this->createTubeLoop($tubeName, $stats), true);
                 $worker->start();
 
-                swoole_event_add($worker->pipe, function ($pipe) use ($worker) {
-                    $this->logger->info(sprintf('recv from pipie %s: %s', $pipe, $worker->read()));
+                swoole_event_add($worker->pipe, function ($pipe) use ($worker, $daemon) {
+                    if ($daemon) {
+                        $this->logger->info(sprintf('recv from pipie %s: %s', $pipe, $worker->read()));
+                    } else {
+                        echo $worker->read();
+                    }
                 });
 
                 $workers[$worker->pid] = $worker;

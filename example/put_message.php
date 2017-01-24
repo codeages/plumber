@@ -6,6 +6,8 @@ use Codeages\Beanstalk\Client as BeanstalkClient;
 require_once __DIR__.'/../vendor/autoload.php';
 
 $config = [];
+$config['host'] = getenv('QUEUE_HOST') ? : '127.0.0.1';
+$config['port'] = getenv('QUEUE_PORT') ? : 11300;
 $config['persistent'] = false;
 
 $beanstalk = new BeanstalkClient($config);

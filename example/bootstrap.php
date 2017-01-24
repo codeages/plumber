@@ -4,8 +4,8 @@ use Pimple\Container;
 
 $config = [
     'server' => [
-        'host' => '127.0.0.1',
-        'port' => 11300,
+        'host' => getenv('QUEUE_HOST') ? : '127.0.0.1',
+        'port' => getenv('QUEUE_PORT') ? : 11300,
     ],
     'tubes' => [
         'Example1' => ['worker_num' => 2, 'class' => 'Codeages\\Plumber\\Example\\Example1Worker'],
