@@ -2,6 +2,8 @@
 
 namespace Codeages\Plumber;
 
+use swoole_process;
+
 class PidManager
 {
     private $path;
@@ -16,8 +18,12 @@ class PidManager
         if (!file_exists($this->path)) {
             return 0;
         }
-
-        return intval(file_get_contents($this->path));
+        $pid = intval(file_get_contents($this->path));
+        if (!swoole_process::kill($pid, 0)) {
+            $this->clear();
+            return 0;
+        }
+        return $pid;
     }
 
     public function save($pid)

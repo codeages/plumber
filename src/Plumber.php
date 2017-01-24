@@ -56,9 +56,10 @@ class Plumber
         $this->container['logger'] = $this->logger = $logger;
         ErrorHandler::register($logger);
 
-        if ($this->pidManager->get()) {
-            echo "ERROR: plumber is already running.\n";
-            return;
+        $pid = $this->pidManager->get();
+        if ($pid) {
+            echo "ERROR: plumber is already running(PID: $pid).\n";
+            exit(1);
         }
 
         echo "plumber started.\n";

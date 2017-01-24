@@ -55,6 +55,20 @@ Bootstrap启动配置文件，必须返回`Pimple\Container`类型的配置对�
 
 请参考[src/IWorker.php](src/IWorker.php)。
 
+## Docker化
+
+### 启动
+
+```
+docker-compose up
+```
+
+### Example Put Message
+
+```
+docker exec YOUR_CONTAINER_ID php example/put_message.php
+```
+
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md).
