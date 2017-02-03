@@ -6,7 +6,8 @@ _(none)_
 ## 0.7.0 (2017-02-04)
 
 * Refactor: 简化逻辑。
-* Fixed: plumber被强制kill后，再次启动报"plumber is running"的问题。
+* Feature: worker进程异常退出后，会自动重新拉起。
+* Fixed: plumber被强制kill后，再次启动报"plumber is running"的问题。
 
 ## 0.6.1 (2017-01-19)
 
