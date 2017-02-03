@@ -4,3 +4,4 @@ example/tmp/*
 vendor
 .DS_Store
 .sonar
+.php_cs.cache

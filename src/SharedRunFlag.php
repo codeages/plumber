@@ -26,5 +26,4 @@ class SharedRunFlag
     {
         return $this->flag->get() === 1;
     }
-
 }

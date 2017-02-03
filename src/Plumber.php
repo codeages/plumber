@@ -141,7 +141,7 @@ class Plumber
 
     private function createWorker($queueName)
     {
-        $worker = new \swoole_process(function($process) use($queueName) {
+        $worker = new \swoole_process(function ($process) use ($queueName) {
             $process->name("plumber: queue `{$queueName}` worker");
             //@see https://github.com/swoole/swoole-src/issues/183
             try {

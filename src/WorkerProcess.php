@@ -66,7 +66,6 @@ class WorkerProcess
                 default:
                     break;
             }
-
         }
     }
 
@@ -211,5 +210,4 @@ class WorkerProcess
 
         $logger->info("tube({$tubeName}, #{$process->pid}): job #{$job['id']} buried.");
     }
-
 }
