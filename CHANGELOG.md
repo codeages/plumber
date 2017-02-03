@@ -8,7 +8,7 @@ _(none)_
 * Refactor: 简化逻辑。
 * Fixed: plumber被强制kill后，再次启动报"plumber is running"的问题。
 
-## 0.6.0 (2017-01-19)
+## 0.6.1 (2017-01-19)
 
 * Fixed: fix for 0.6.0
 
