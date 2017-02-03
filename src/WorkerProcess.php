@@ -16,7 +16,7 @@ class WorkerProcess
 
     protected $times;
 
-    const RESERVE_TIMEOUT = 10;
+    const RESERVE_TIMEOUT = 5;
 
     public function __construct($tubeName, $process, $container)
     {
@@ -37,7 +37,6 @@ class WorkerProcess
             if (!$this->container['run_flag']->isRuning()) {
                 break;
             }
-            // $process->write("Process #{$process->pid} is running...\n");
 
             $job = $this->reserveJob();
             if (empty($job)) {
@@ -108,7 +107,7 @@ class WorkerProcess
         $logger = $this->container['logger'];
         $process = $this->process;
 
-        if ($this->times % 10 === 0) {
+        if ($this->times % 100 === 0) {
             $logger->info("tube({$tubeName}, #{$process->pid}): reserving {$this->times} times.");
         }
 

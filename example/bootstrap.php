@@ -23,8 +23,6 @@ $options = [
 
     'log_path' => __DIR__ . '/tmp/plumber.log',
     'pid_path' =>  __DIR__  . '/tmp/plumber.pid',
-    'reserve_timeout' => 10,
-    'execute_timeout' => 60,
 ];
 
 $container = new Container($options);

@@ -24,6 +24,8 @@ class Plumber
 
     const ALREADY_RUNNING_ERROR = 1;
 
+    const LOCK_PROCESS_ERROR = 2;
+
     public function __construct(Container $container)
     {
         $container['run_flag'] = new SharedRunFlag();
@@ -43,6 +45,12 @@ class Plumber
 
     protected function start($daemon = true)
     {
+        $locked = $this->locker->isLocked();
+        if ($locked) {
+            echo "error: plumber is already running(PID: {$this->locker->getId()}).\n";
+            exit(self::ALREADY_RUNNING_ERROR);
+        }
+
         if ($daemon) {
             $this->daemon = true;
             swoole_process::daemon();
@@ -52,8 +60,8 @@ class Plumber
 
         $locked = $this->locker->lock(posix_getpid());
         if (!$locked) {
-            echo "error: plumber is already running(PID: {$this->locker->getId()}).\n";
-            exit(self::ALREADY_RUNNING_ERROR);
+            echo 'error: lock process error.';
+            exit(self::LOCK_PROCESS_ERROR);
         }
 
         swoole_set_process_name('plumber: master');
@@ -71,23 +79,31 @@ class Plumber
         $this->registerSignal();
 
         foreach ($this->workers as $worker) {
-            swoole_event_add($worker->pipe, function ($pipe) use ($worker) {
-                echo $worker->read();
+            swoole_event_add($worker->pipe, function ($pipe) use ($worker, $logger) {
+                $logger->info("read from worker:".$worker->read());
             });
         }
 
         $this->container['run_flag']->run();
+
+        $logger->info('started.');
     }
 
+    /**
+     * @todo
+     * 此方法有逻辑缺陷：
+     *   如plumber进程异常退出后，pid文件b并不会被清除。
+     *   当系统重启后，此时pid文件中所指示的pid可能为其他程序的进程，如果这时执行stop操作，存在可能把其他程序进程kill掉的风险。
+     */
     protected function stop()
     {
         $pid = $this->locker->getId();
         if (empty($pid)) {
-            echo "plumber is not running...\n";
+            echo "plumber is not running.\n";
             return;
         }
 
-        echo 'plumber is stoping....';
+        echo 'plumber is stoping...';
         exec("kill -15 {$pid}");
         while (1) {
             if ($this->locker->isLocked()) {
@@ -150,16 +166,19 @@ class Plumber
                 }
 
                 if ($this->container['run_flag']->isRuning()) {
-                    $this->workers[$ret['pid']]->start();
+                    $newPid = $this->workers[$ret['pid']]->start();
+                    $this->workers[$newPid] = $this->workers[$ret['pid']];
+                    unset($this->workers[$ret['pid']]);
+                    $this->logger->notice("process #{$ret['pid']} exited, #{$newPid} is recreated.", $ret);
                 } else {
                     unset($this->workers[$ret['pid']]);
                     $this->logger->info("process #{$ret['pid']} exited.", $ret);
                     if (empty($this->workers)) {
                         $this->locker->release();
+                        $this->logger->info("stoped.");
                         swoole_event_exit();
                     }
                 }
-
             }
         });
 

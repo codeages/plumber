@@ -12,7 +12,6 @@ class Example1Worker implements IWorker
     public function execute($data)
     {
         $this->logger->info("I'm example 1 worker.");
-        echo "this message is directory echo.";
 
         return array('code' => IWorker::FINISH);
     }
