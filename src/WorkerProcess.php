@@ -6,71 +6,38 @@ use Codeages\Beanstalk\Client as BeanstalkClient;
 use Codeages\Beanstalk\ClientProxy as BeanstalkClientProxy;
 use Codeages\Beanstalk\Exception\DeadlineSoonException;
 
-class TubeListener
+class WorkerProcess
 {
     protected $tubeName;
 
     protected $process;
 
-    protected $queue;
-
     protected $container;
 
-    protected $logger;
+    protected $times;
 
-    protected $stats;
+    const RESERVE_TIMEOUT = 10;
 
-    protected $times = 0;
-
-    public function __construct($tubeName, $process, $container, $logger, $stats)
+    public function __construct($tubeName, $process, $container)
     {
         $this->tubeName = $tubeName;
         $this->process = $process;
         $this->container = $container;
-        $this->logger = $logger;
-        $this->stats = $stats;
+        $this->times = 0;
     }
 
-    public function connect()
+    public function run()
     {
-        $tubeName = $this->tubeName;
         $process = $this->process;
-        $logger = $this->logger;
+        $this->connect();
 
-        $options = $this->container['server'];
-        $options['socket_timeout'] = $this->container['reserve_timeout'] * 2;
-
-        $queue = new BeanstalkClient($options);
-        $queue = new BeanstalkClientProxy($queue, $logger);
-        $this->queue = $queue;
-
-        $queue->connect();
-        $queue->watch($tubeName);
-        $queue->useTube($tubeName);
-        $queue->ignore('default');
-
-        $logger->info("tube({$tubeName}, #{$process->pid}): watching.");
-
-        return true;
-    }
-
-    public function loop()
-    {
-        $tubeName = $this->tubeName;
-        $queue = $this->queue;
-        $logger = $this->logger;
-        $process = $this->process;
-        $worker = $this->createQueueWorker($tubeName);
+        $executor = $this->createWorkerExecutor($this->tubeName);
 
         while (true) {
-            $this->stats->touch($tubeName, $process->pid, false, 0);
-            $stoping = $this->stats->isStoping();
-
-            if ($stoping) {
-                $this->logger->info("process #{$process->pid} is exiting.");
-                $process->exit(1);
+            if (!$this->container['run_flag']->isRuning()) {
                 break;
             }
+            // $process->write("Process #{$process->pid} is running...\n");
 
             $job = $this->reserveJob();
             if (empty($job)) {
@@ -78,8 +45,7 @@ class TubeListener
             }
 
             try {
-                $result = $worker->execute($job);
-                $this->stats->touch($tubeName, $process->pid, false, 0);
+                $result = $executor->execute($job);
             } catch (\Exception $e) {
                 $message = sprintf('tube({$tubeName}, #%d): execute job #%d exception, `%s`', $process->pid, $job['id'], $e->getMessage());
                 $logger->error($message, $job);
@@ -101,14 +67,45 @@ class TubeListener
                 default:
                     break;
             }
+
         }
+    }
+
+    private function connect()
+    {
+        $tubeName = $this->tubeName;
+        $process = $this->process;
+        $logger = $this->container['logger'];
+
+        $options = $this->container['server'];
+        $options['socket_timeout'] = self::RESERVE_TIMEOUT * 2;
+
+        $this->queue = $queue = new BeanstalkClientProxy(new BeanstalkClient($options), $logger);
+
+        $queue->connect();
+        $queue->watch($tubeName);
+        $queue->useTube($tubeName);
+        $queue->ignore('default');
+
+        $logger->info("tube({$tubeName}, #{$process->pid}): watching.");
+
+        return true;
+    }
+
+    private function createWorkerExecutor($name)
+    {
+        $class = $this->container['tubes'][$name]['class'];
+        $worker = new $class($name, $this->container['tubes'][$name]);
+        $worker->setContainer($this->container);
+
+        return $worker;
     }
 
     private function reserveJob()
     {
         $tubeName = $this->tubeName;
         $queue = $this->queue;
-        $logger = $this->logger;
+        $logger = $this->container['logger'];
         $process = $this->process;
 
         if ($this->times % 10 === 0) {
@@ -117,7 +114,7 @@ class TubeListener
 
         $job = false;
         try {
-            $job = $queue->reserve($this->container['reserve_timeout']);
+            $job = $queue->reserve(self::RESERVE_TIMEOUT);
         } catch (DeadlineSoonException $e) {
             $logger->info("tube({$tubeName}, #{$process->pid}): reserve job is deadline soon, sleep 2 seconds.");
             sleep(2);
@@ -127,7 +124,6 @@ class TubeListener
         }
 
         ++$this->times;
-        $this->stats->touch($tubeName, $process->pid, true, empty($job['id']) ? 0 : $job['id']);
 
         if (!$job) {
             return;
@@ -143,7 +139,7 @@ class TubeListener
     {
         $tubeName = $this->tubeName;
         $queue = $this->queue;
-        $logger = $this->logger;
+        $logger = $this->container['logger'];
         $process = $this->process;
 
         $logger->info("tube({$tubeName}, #{$process->pid}): job #{$job['id']} execute finished.");
@@ -158,7 +154,7 @@ class TubeListener
     {
         $tubeName = $this->tubeName;
         $queue = $this->queue;
-        $logger = $this->logger;
+        $logger = $this->container['logger'];
         $process = $this->process;
 
         $message = $job['body'];
@@ -170,7 +166,6 @@ class TubeListener
         $stats = $queue->statsJob($job['id']);
         if ($stats === false) {
             $logger->error("tube({$tubeName}, #{$process->pid}): job #{$job['id']} get stats failed, in retry executed.", $job);
-
             return;
         }
 
@@ -178,7 +173,6 @@ class TubeListener
         $deleted = $queue->delete($job['id']);
         if (!$deleted) {
             $logger->error("tube({$tubeName}, #{$process->pid}): job #{$job['id']} delete failed, in retry executed.", $job);
-
             return;
         }
 
@@ -200,13 +194,12 @@ class TubeListener
     {
         $tubeName = $this->tubeName;
         $queue = $this->queue;
-        $logger = $this->logger;
+        $logger = $this->container['logger'];
         $process = $this->process;
 
         $stats = $queue->statsJob($job['id']);
         if ($stats === false) {
             $logger->error("tube({$tubeName}, #{$process->pid}): job #{$job['id']} get stats failed, in bury executed.", $job);
-
             return;
         }
 
@@ -214,24 +207,10 @@ class TubeListener
         $burried = $queue->bury($job['id'], $pri);
         if ($burried === false) {
             $logger->error("tube({$tubeName}, #{$process->pid}): job #{$job['id']} bury failed", $job);
-
             return;
         }
 
         $logger->info("tube({$tubeName}, #{$process->pid}): job #{$job['id']} buried.");
     }
 
-    private function createQueueWorker($name)
-    {
-        $class = $this->container['tubes'][$name]['class'];
-        $worker = new $class($name, $this->container['tubes'][$name]);
-        $worker->setContainer($this->container);
-
-        return $worker;
-    }
-
-    public function getQueue()
-    {
-        return $this->queue;
-    }
 }

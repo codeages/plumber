@@ -2,7 +2,7 @@
 
 use Pimple\Container;
 
-$config = [
+$options = [
     'server' => [
         'host' => getenv('QUEUE_HOST') ? : '127.0.0.1',
         'port' => getenv('QUEUE_PORT') ? : 11300,
@@ -27,5 +27,5 @@ $config = [
     'execute_timeout' => 60,
 ];
 
-$container = new Container($config);
+$container = new Container($options);
 return $container;

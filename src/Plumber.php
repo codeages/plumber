@@ -10,28 +10,25 @@ use swoole_process;
 
 class Plumber
 {
-    private $server;
+    /**
+     * @var Container
+     */
+    protected $container;
 
-    private $container;
-
-    protected $logger;
-
-    protected $output;
-
-    protected $pidManager;
-
-    protected $stats;
+    /**
+     * @var boolean
+     */
+    protected $daemon;
 
     protected $workers;
 
-    protected $state;
-
-    protected $daemon = false;
+    const ALREADY_RUNNING_ERROR = 1;
 
     public function __construct(Container $container)
     {
+        $container['run_flag'] = new SharedRunFlag();
+        $this->locker = new ProcessLocker($container['pid_path']);
         $this->container = $container;
-        $this->pidManager = new PidManager($this->container['pid_path']);
     }
 
     public function main($op)
@@ -46,65 +43,54 @@ class Plumber
 
     protected function start($daemon = true)
     {
-        $this->daemon = $daemon;
+        if ($daemon) {
+            $this->daemon = true;
+            swoole_process::daemon();
+        } else {
+            $this->daemon = false;
+        }
+
+        $locked = $this->locker->lock(posix_getpid());
+        if (!$locked) {
+            echo "error: plumber is already running(PID: {$this->locker->getId()}).\n";
+            exit(self::ALREADY_RUNNING_ERROR);
+        }
+
+        swoole_set_process_name('plumber: master');
+
         $logger = new Logger('plumber');
         if ($daemon) {
             $logger->pushHandler(new StreamHandler($this->container['log_path']));
         } else {
             $logger->pushHandler(new StreamHandler('php://output'));
         }
-        $this->container['logger'] = $this->logger = $logger;
         ErrorHandler::register($logger);
+        $this->container['logger'] = $this->logger = $logger;
 
-        $pid = $this->pidManager->get();
-        if ($pid) {
-            echo "ERROR: plumber is already running(PID: $pid).\n";
-            exit(1);
-        }
-
-        echo "plumber started.\n";
-
-        if ($daemon) {
-            swoole_process::daemon();
-        }
-
-        $this->logger->info('plumber starting...');
-
-        $this->stats = $stats = $this->createListenerStats();
-
-        swoole_set_process_name('plumber: master');
-        $this->workers = $this->createWorkers($stats);
+        $this->workers = $this->createWorkers();
         $this->registerSignal();
 
-        $this->pidManager->save(posix_getpid());
+        foreach ($this->workers as $worker) {
+            swoole_event_add($worker->pipe, function ($pipe) use ($worker) {
+                echo $worker->read();
+            });
+        }
 
-        swoole_timer_tick(1000, function ($timerId) {
-            $statses = $this->stats->getAll();
-            foreach ($statses as $pid => $s) {
-                if (($s['last_update'] + $this->container['reserve_timeout'] + $this->container['execute_timeout']) > time()) {
-                    continue;
-                }
-                if (!$s['timeout']) {
-                    $this->logger->notice("process #{$pid} last upadte at ".date('Y-m-d H:i:s').', it is timeout.', $s);
-                    $this->stats->timeout($pid);
-                }
-            }
-        });
+        $this->container['run_flag']->run();
     }
 
     protected function stop()
     {
-        $pid = $this->pidManager->get();
+        $pid = $this->locker->getId();
         if (empty($pid)) {
             echo "plumber is not running...\n";
-
             return;
         }
 
         echo 'plumber is stoping....';
         exec("kill -15 {$pid}");
         while (1) {
-            if ($this->pidManager->get()) {
+            if ($this->locker->isLocked()) {
                 sleep(1);
                 continue;
             }
@@ -121,36 +107,15 @@ class Plumber
         $this->start();
     }
 
-    private function createListenerStats()
-    {
-        $size = 0;
-        foreach ($this->container['tubes'] as $tubeName => $tubeConfig) {
-            $size += $tubeConfig['worker_num'];
-        }
-
-        return new ListenerStats($size, $this->logger);
-    }
-
     /**
      * 创建队列的监听器.
      */
-    private function createWorkers($stats)
+    private function createWorkers()
     {
-        $daemon = $this->daemon;
         $workers = [];
-        foreach ($this->container['tubes'] as $tubeName => $tubeConfig) {
-            for ($i = 0; $i < $tubeConfig['worker_num']; ++$i) {
-                $worker = new \swoole_process($this->createTubeLoop($tubeName, $stats), true);
-                $worker->start();
-
-                swoole_event_add($worker->pipe, function ($pipe) use ($worker, $daemon) {
-                    if ($daemon) {
-                        $this->logger->info(sprintf('recv from pipie %s: %s', $pipe, $worker->read()));
-                    } else {
-                        echo $worker->read();
-                    }
-                });
-
+        foreach ($this->container['tubes'] as $name => $options) {
+            for ($i = 0; $i < $options['worker_num']; ++$i) {
+                $worker = $this->createWorker($name);
                 $workers[$worker->pid] = $worker;
             }
         }
@@ -158,58 +123,49 @@ class Plumber
         return $workers;
     }
 
-    /**
-     * 创建队列处理Loop.
-     */
-    private function createTubeLoop($tubeName, $stats)
+    private function createWorker($queueName)
     {
-        return function ($process) use ($tubeName, $stats) {
-            $process->name("plumber: tube `{$tubeName}` task worker");
-
+        $worker = new \swoole_process(function($process) use($queueName) {
+            $process->name("plumber: queue `{$queueName}` worker");
             //@see https://github.com/swoole/swoole-src/issues/183
             try {
-                $listener = new TubeListener($tubeName, $process, $this->container, $this->logger, $stats);
-                $listener->connect();
-                $listener->loop();
+                $process = new WorkerProcess($queueName, $process, $this->container);
+                $process->run();
             } catch (\Exception $e) {
                 $this->logger->error($e);
             }
-        };
+        }, false, 2);
+        $worker->start();
+
+        return $worker;
     }
 
     private function registerSignal()
     {
         swoole_process::signal(SIGCHLD, function () {
-            while (1) {
+            while (true) {
                 $ret = swoole_process::wait(false);
                 if (!$ret) {
                     break;
                 }
-                $this->logger->info("process #{$ret['pid']} exited.", $ret);
-                unset($this->workers[$ret['pid']]);
-                $this->stats->remove($ret['pid']);
+
+                if ($this->container['run_flag']->isRuning()) {
+                    $this->workers[$ret['pid']]->start();
+                } else {
+                    unset($this->workers[$ret['pid']]);
+                    $this->logger->info("process #{$ret['pid']} exited.", $ret);
+                    if (empty($this->workers)) {
+                        $this->locker->release();
+                        swoole_event_exit();
+                    }
+                }
+
             }
         });
 
         $softkill = function ($signo) {
-            if ($this->state == 'stoping') {
-                return;
-            }
-            $this->state = 'stoping';
             $this->logger->info('plumber is stoping....');
-
-            $this->stats->stop();
-
-            // 确保worker进程都退出后，再退出主进程
-            swoole_timer_tick(1000, function ($timerId) {
-                if (!empty($this->workers)) {
-                    return;
-                }
-                swoole_timer_clear($timerId);
-                $this->pidManager->clear();
-                $this->logger->info('plumber is stopped.');
-                exit();
-            });
+            $this->container['run_flag']->stop();
         };
 
         swoole_process::signal(SIGTERM, $softkill);
