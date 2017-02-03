@@ -3,7 +3,7 @@
 ## HEAD (Unreleased)
 _(none)_
 
-## 0.7.0 (2017-02-03)
+## 0.7.0 (2017-02-04)
 
 * Refactor: 简化逻辑。
 * Fixed: plumber被强制kill后，再次启动报"plumber is running"的问题。
