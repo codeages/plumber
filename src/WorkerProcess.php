@@ -29,6 +29,7 @@ class WorkerProcess
     public function run()
     {
         $process = $this->process;
+        $logger = $this->container['logger'];
         $this->connect();
 
         $executor = $this->createWorkerExecutor($this->tubeName);
