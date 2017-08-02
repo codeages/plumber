@@ -8,7 +8,7 @@ if (!$autoloader()) {
 use Codeages\Plumber\Plumber;
 
 $workDir = getcwd();
-$version = '0.6.0';
+$version = '0.7.2';
 $commands = ['run', 'start', 'restart', 'stop'];
 
 $usage = sprintf('%s (%s)  [--bootstrap=<file>]', $argv[0], implode('|', $commands));

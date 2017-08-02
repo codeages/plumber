@@ -16,6 +16,11 @@ class WorkerProcess
 
     protected $times;
 
+    /**
+     * @var BeanstalkClientProxy
+     */
+    protected $queue;
+
     const RESERVE_TIMEOUT = 5;
 
     public function __construct($tubeName, $process, $container)

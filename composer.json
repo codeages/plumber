@@ -26,5 +26,8 @@
         "codeages/beanstalk-client" : "^0.1.4",
         "monolog/monolog": "^1.22.0"
     },
-    "bin": ["bin/plumber"]
+    "bin": ["bin/plumber"],
+    "require-dev": {
+        "eaglewu/swoole-ide-helper": "dev-master"
+    }
 }

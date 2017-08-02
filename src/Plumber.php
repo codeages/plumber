@@ -6,6 +6,7 @@ use Pimple\Container;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 use Monolog\ErrorHandler;
+use Psr\Log\LoggerInterface;
 use swoole_process;
 
 class Plumber
@@ -21,6 +22,11 @@ class Plumber
     protected $daemon;
 
     protected $workers;
+
+    /**
+     * @var LoggerInterface
+     */
+    protected $logger;
 
     const ALREADY_RUNNING_ERROR = 1;
 
@@ -92,7 +98,7 @@ class Plumber
     /**
      * @todo
      * 此方法有逻辑缺陷：
-     *   如plumber进程异常退出后，pid文件b并不会被清除。
+     *   如plumber进程异常退出后，pid文件并不会被清除。
      *   当系统重启后，此时pid文件中所指示的pid可能为其他程序的进程，如果这时执行stop操作，存在可能把其他程序进程kill掉的风险。
      */
     protected function stop()
