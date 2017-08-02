@@ -13,6 +13,7 @@ class ForwardWorker implements IWorker
     protected $tubeName;
     protected $delays = array(2, 4, 8);
     protected $destQueue;
+    protected $destQueueName;
 
     public function __construct($tubeName, $config)
     {
@@ -22,17 +23,16 @@ class ForwardWorker implements IWorker
         $config = $this->config['destination'];
         $config['persistent'] = true;
 
+        $this->destQueueName = isset($this->config['destination']['tubeName']) ? $this->config['destination']['tubeName'] : $this->tubeName;
         $this->destQueue = new BeanstalkClient($config);
         $this->destQueue->connect();
-        $this->destQueue->useTube($tubeName);
+        $this->destQueue->useTube($this->destQueueName);
     }
 
     public function execute($job)
     {
         try {
             $body = $job['body'];
-
-            $tubeName = isset($this->config['destination']['tubeName']) ? $this->config['destination']['tubeName'] : $this->tubeName;
 
             $pri = isset($this->config['pri']) ? $this->config['pri'] : 0;
             $delay = isset($this->config['delay']) ? $this->config['delay'] : 0;
@@ -44,7 +44,7 @@ class ForwardWorker implements IWorker
 
             $this->destQueue->put($pri, $delay, $ttr, json_encode($body));
 
-            $this->logger->info("put job to host:{$this->config['destination']['host']} port:{$this->config['destination']['port']} tube:{$tubeName} ", $body);
+            $this->logger->info("put job to host:{$this->config['destination']['host']} port:{$this->config['destination']['port']} tube:{$this->destQueueName} ", $body);
 
             return IWorker::FINISH;
         } catch (\Exception $e) {
