@@ -3,6 +3,10 @@
 ## HEAD (Unreleased)
 _(none)_
 
+## 0.7.2 (2017-08-02)
+
+* 修复ForwardWorker队列名错误的问题。
+
 ## 0.7.0 (2017-02-04)
 
 * Refactor: 简化逻辑。
