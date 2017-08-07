@@ -1,0 +1,4 @@
+.idea
+.sonar
+.git
+example/tmp/*

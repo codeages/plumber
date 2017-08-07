@@ -59,7 +59,7 @@ class Plumber
 
         if ($daemon) {
             $this->daemon = true;
-            swoole_process::daemon();
+            swoole_process::daemon(true, false);
         } else {
             $this->daemon = false;
         }
