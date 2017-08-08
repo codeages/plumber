@@ -4,6 +4,7 @@ namespace Codeages\Plumber;
 
 use Psr\Log\LoggerInterface;
 use Codeages\Beanstalk\Client as BeanstalkClient;
+use Codeages\Beanstalk\ClientProxy as BeanstalkClientProxy;
 
 class ForwardWorker implements IWorker
 {
@@ -24,7 +25,7 @@ class ForwardWorker implements IWorker
         $config['persistent'] = true;
 
         $this->destQueueName = isset($this->config['destination']['tubeName']) ? $this->config['destination']['tubeName'] : $this->tubeName;
-        $this->destQueue = new BeanstalkClient($config);
+        $this->destQueue = new BeanstalkClientProxy(new BeanstalkClient($config));
         $this->destQueue->connect();
         $this->destQueue->useTube($this->destQueueName);
     }
@@ -38,8 +39,8 @@ class ForwardWorker implements IWorker
             $delay = isset($this->config['delay']) ? $this->config['delay'] : 0;
             $ttr = isset($this->config['ttr']) ? $this->config['ttr'] : 60;
 
-            if (!isset($body['retry'])) {
-                unset($body['retry']);
+            if (isset($body['__retry'])) {
+                unset($body['__retry']);
             }
 
             $this->destQueue->put($pri, $delay, $ttr, json_encode($body));
@@ -49,10 +50,10 @@ class ForwardWorker implements IWorker
             return IWorker::FINISH;
         } catch (\Exception $e) {
             $body = $job['body'];
-            if (!isset($body['retry'])) {
+            if (!isset($body['__retry'])) {
                 $retry = 0;
             } else {
-                $retry = $body['retry'] + 1;
+                $retry = $body['__retry'] + 1;
             }
             if ($retry < 3) {
                 $this->logger->error("job #{$job['id']} forwarded error, job is retry.  error message: {$e->getMessage()}", $job);

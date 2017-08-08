@@ -3,13 +3,15 @@
 ## HEAD (Unreleased)
 _(none)_
 
+* 修复 ForwardWorker 长时间运行后，报 Socket 错误的问题。
+
 ## 0.7.3 (2017-08-07)
 
 * 修复通过SSH远程启动服务后，一直卡住的问题。
 
 ## 0.7.2 (2017-08-02)
 
-* 修复ForwardWorker队列名错误的问题。
+* 修复 ForwardWorker 队列名错误的问题。
 
 ## 0.7.0 (2017-02-04)
 

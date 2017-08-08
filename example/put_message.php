@@ -13,7 +13,7 @@ $config['persistent'] = false;
 $beanstalk = new BeanstalkClient($config);
 
 $beanstalk->connect();
-$beanstalk->useTube('Example1');
+$beanstalk->useTube('ExampleForward');
 
 $i=0;
 
