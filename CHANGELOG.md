@@ -3,6 +3,8 @@
 ## HEAD (Unreleased)
 _(none)_
 
+## 0.7.4 (2017-08-08)
+
 * 修复 ForwardWorker 长时间运行后，报 Socket 错误的问题。
 
 ## 0.7.3 (2017-08-07)
