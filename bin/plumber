@@ -45,5 +45,5 @@ if (!$config instanceof \Pimple\Container ) {
     exit(2);
 }
 
-$plumber = new Plumber($config);
+$plumber = new Plumber($config, $configFile);
 $plumber->main($cmd);

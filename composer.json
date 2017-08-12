@@ -23,8 +23,9 @@
         "ext-swoole": ">=1.7.17",
         "pimple/pimple": "^3",
         "docopt/docopt": "^1",
-        "codeages/beanstalk-client" : "^0.1.4",
-        "monolog/monolog": "^1.22.0"
+        "codeages/beanstalk-client" : "^0.1",
+        "codeages/rate-limiter": "^0.2",
+        "monolog/monolog": "^1.22"
     },
     "bin": ["bin/plumber"],
     "require-dev": {

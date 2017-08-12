@@ -2,12 +2,13 @@
 
 namespace Codeages\Plumber;
 
+use swoole_process;
+use Psr\Log\LoggerInterface;
 use Pimple\Container;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 use Monolog\ErrorHandler;
-use Psr\Log\LoggerInterface;
-use swoole_process;
+use Codeages\RateLimiter\RateLimiter;
 
 class Plumber
 {
@@ -16,8 +17,10 @@ class Plumber
      */
     protected $container;
 
+    protected $configFilePath;
+
     /**
-     * @var boolean
+     * @var bool
      */
     protected $daemon;
 
@@ -28,15 +31,27 @@ class Plumber
      */
     protected $logger;
 
+    /**
+     * @var RateLimiter
+     */
+    protected $limiter;
+
     const ALREADY_RUNNING_ERROR = 1;
 
     const LOCK_PROCESS_ERROR = 2;
 
-    public function __construct(Container $container)
+    public function __construct(Container $container, $configFilePath)
     {
         $container['run_flag'] = new SharedRunFlag();
         $this->locker = new ProcessLocker($container['pid_path']);
+        $this->limiter = new RateLimiter(
+            'process_recreate',
+            10,
+            600,
+            new \Codeages\RateLimiter\Storage\ArrayStorage()
+        );
         $this->container = $container;
+        $this->configFilePath = $configFilePath;
     }
 
     public function main($op)
@@ -70,7 +85,7 @@ class Plumber
             exit(self::LOCK_PROCESS_ERROR);
         }
 
-        swoole_set_process_name('plumber: master');
+        swoole_set_process_name(sprintf('plumber: master (%s)', $this->configFilePath));
 
         $logger = new Logger('plumber');
         if ($daemon) {
@@ -81,12 +96,12 @@ class Plumber
         ErrorHandler::register($logger);
         $this->container['logger'] = $this->logger = $logger;
 
-        $this->workers = $this->createWorkers();
+        $this->workers = $this->startWorkers();
         $this->registerSignal();
 
         foreach ($this->workers as $worker) {
-            swoole_event_add($worker->pipe, function ($pipe) use ($worker, $logger) {
-                $logger->info("read from worker:".$worker->read());
+            swoole_event_add($worker['process']->pipe, function ($pipe) use ($worker, $logger) {
+                $logger->info('read from worker:'.$worker['process']->read());
             });
         }
 
@@ -106,6 +121,7 @@ class Plumber
         $pid = $this->locker->getId();
         if (empty($pid)) {
             echo "plumber is not running.\n";
+
             return;
         }
 
@@ -132,20 +148,23 @@ class Plumber
     /**
      * 创建队列的监听器.
      */
-    private function createWorkers()
+    private function startWorkers()
     {
         $workers = [];
         foreach ($this->container['tubes'] as $name => $options) {
             for ($i = 0; $i < $options['worker_num']; ++$i) {
-                $worker = $this->createWorker($name);
-                $workers[$worker->pid] = $worker;
+                $worker = $this->startWorker($name);
+                $workers[$worker->pid] = array(
+                    'tube' => $name,
+                    'process' => $worker,
+                );
             }
         }
 
         return $workers;
     }
 
-    private function createWorker($queueName)
+    private function startWorker($queueName)
     {
         $worker = new \swoole_process(function ($process) use ($queueName) {
             $process->name("plumber: queue `{$queueName}` worker");
@@ -172,18 +191,26 @@ class Plumber
                 }
 
                 if ($this->container['run_flag']->isRuning()) {
-                    $newPid = $this->workers[$ret['pid']]->start();
-                    $this->workers[$newPid] = $this->workers[$ret['pid']];
+                    $worker = $this->workers[$ret['pid']];
                     unset($this->workers[$ret['pid']]);
-                    $this->logger->notice("process #{$ret['pid']} exited, #{$newPid} is recreated.", $ret);
+
+                    $remainTimes = $this->limiter->check($worker['tube']);
+                    if ($remainTimes > 0) {
+                        $newPid = $worker['process']->start();
+                        $this->workers[$newPid] = $worker;
+                        $this->logger->notice("tube {$worker['tube']} process #{$ret['pid']} exited, #{$newPid} is recreated, remain {$remainTimes} recreated times. .", $ret);
+                    } else {
+                        $this->logger->notice("tube {$worker['tube']} process #{$ret['pid']} exited, reached max recreated times.", $ret);
+                    }
                 } else {
                     unset($this->workers[$ret['pid']]);
                     $this->logger->info("process #{$ret['pid']} exited.", $ret);
-                    if (empty($this->workers)) {
-                        $this->locker->release();
-                        $this->logger->info("stoped.");
-                        swoole_event_exit();
-                    }
+                }
+
+                if (empty($this->workers)) {
+                    $this->locker->release();
+                    $this->logger->info('stoped.');
+                    swoole_event_exit();
                 }
             }
         });

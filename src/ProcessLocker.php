@@ -20,6 +20,7 @@ class ProcessLocker
         }
         $id = intval($id);
         file_put_contents($this->path, $id);
+
         return true;
     }
 

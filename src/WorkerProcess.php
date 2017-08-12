@@ -52,9 +52,9 @@ class WorkerProcess
             try {
                 $result = $executor->execute($job);
             } catch (\Exception $e) {
-                $message = sprintf('tube({$tubeName}, #%d): execute job #%d exception, `%s`', $process->pid, $job['id'], $e->getMessage());
+                $message = sprintf('tube(%s, #%d): execute job #%d exception, `%s`', $this->tubeName, $process->pid, $job['id'], $e->getMessage());
                 $logger->error($message, $job);
-                continue;
+                throw $e;
             }
 
             $code = is_array($result) ? $result['code'] : $result;
@@ -170,6 +170,7 @@ class WorkerProcess
         $stats = $queue->statsJob($job['id']);
         if ($stats === false) {
             $logger->error("tube({$tubeName}, #{$process->pid}): job #{$job['id']} get stats failed, in retry executed.", $job);
+
             return;
         }
 
@@ -177,6 +178,7 @@ class WorkerProcess
         $deleted = $queue->delete($job['id']);
         if (!$deleted) {
             $logger->error("tube({$tubeName}, #{$process->pid}): job #{$job['id']} delete failed, in retry executed.", $job);
+
             return;
         }
 
@@ -204,6 +206,7 @@ class WorkerProcess
         $stats = $queue->statsJob($job['id']);
         if ($stats === false) {
             $logger->error("tube({$tubeName}, #{$process->pid}): job #{$job['id']} get stats failed, in bury executed.", $job);
+
             return;
         }
 
@@ -211,9 +214,10 @@ class WorkerProcess
         $burried = $queue->bury($job['id'], $pri);
         if ($burried === false) {
             $logger->error("tube({$tubeName}, #{$process->pid}): job #{$job['id']} bury failed", $job);
+
             return;
         }
 
-        $logger->info("tube({$tubeName}, #{$process->pid}): job #{$job['id']} buried.");
+        $logger->notice("tube({$tubeName}, #{$process->pid}): job #{$job['id']} buried.");
     }
 }

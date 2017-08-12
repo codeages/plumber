@@ -2,7 +2,6 @@
 
 namespace Codeages\Plumber;
 
-use Psr\Log\LoggerInterface;
 use Codeages\Beanstalk\Client as BeanstalkClient;
 use Codeages\Beanstalk\ClientProxy as BeanstalkClientProxy;
 

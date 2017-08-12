@@ -1,4 +1,5 @@
 <?php
+
 namespace Codeages\Plumber;
 
 use Pimple\Container;
