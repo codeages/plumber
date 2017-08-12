@@ -25,7 +25,7 @@ class ForwardWorker implements IWorker
         $config['persistent'] = true;
 
         $this->destQueueName = isset($this->config['destination']['tubeName']) ? $this->config['destination']['tubeName'] : $this->tubeName;
-        $this->destQueue = new BeanstalkClientProxy(new BeanstalkClient($config));
+        $this->destQueue = new BeanstalkClientProxy(new BeanstalkClient($config), $this->logger);
         $this->destQueue->connect();
         $this->destQueue->useTube($this->destQueueName);
     }
