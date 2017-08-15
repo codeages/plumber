@@ -4,11 +4,12 @@ namespace Codeages\Plumber;
 
 use Codeages\Beanstalk\Client as BeanstalkClient;
 use Codeages\Beanstalk\ClientProxy as BeanstalkClientProxy;
+use Pimple\Container;
 
 class ForwardWorker implements IWorker
 {
-    use ContainerAwareTrait;
-
+    protected $container;
+    protected $logger;
     protected $config;
     protected $tubeName;
     protected $delays = array(2, 4, 8);
@@ -19,6 +20,12 @@ class ForwardWorker implements IWorker
     {
         $this->config = $config;
         $this->tubeName = $tubeName;
+    }
+
+    public function setContainer(Container $container = null)
+    {
+        $this->container = $container;
+        $this->logger = $container['logger'];
 
         $config = $this->config['destination'];
         $config['persistent'] = true;
