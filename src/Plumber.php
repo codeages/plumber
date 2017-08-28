@@ -85,7 +85,12 @@ class Plumber
             exit(self::LOCK_PROCESS_ERROR);
         }
 
-        swoole_set_process_name(sprintf('plumber: master (%s)', $this->configFilePath));
+        if (isset($this->container['app_name'])) {
+            swoole_set_process_name(sprintf('plumber: [%s] master (%s)', $this->container['app_name'], $this->configFilePath));
+        } else {
+            swoole_set_process_name(sprintf('plumber: master (%s)', $this->configFilePath));
+        }
+
 
         $logger = new Logger('plumber');
         if ($daemon) {
@@ -167,7 +172,11 @@ class Plumber
     private function startWorker($queueName)
     {
         $worker = new \swoole_process(function ($process) use ($queueName) {
-            $process->name("plumber: queue `{$queueName}` worker");
+            if (isset($this->container['app_name'])) {
+                $process->name("plumber: [{$this->container['app_name']}] queue `{$queueName}` worker");
+            } else {
+                $process->name("plumber: queue `{$queueName}` worker");
+            }
             //@see https://github.com/swoole/swoole-src/issues/183
             try {
                 $process = new WorkerProcess($queueName, $process, $this->container);
