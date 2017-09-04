@@ -33,6 +33,7 @@ class WorkerProcess
 
     public function run()
     {
+        usleep(rand(100, 1000)*1000);
         $process = $this->process;
         $logger = $this->container['logger'];
         $this->connect();
