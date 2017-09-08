@@ -56,6 +56,10 @@ class WorkerProcess
                 $message = sprintf('tube(%s, #%d): execute job #%d exception, `%s`', $this->tubeName, $process->pid, $job['id'], $e->getMessage());
                 $logger->error($message, $job);
                 throw $e;
+            } catch (\Throwable $e) {
+                $message = sprintf('tube(%s, #%d): execute job #%d error, `%s`', $this->tubeName, $process->pid, $job['id'], $e->getMessage());
+                $logger->error($message, $job);
+                throw $e;
             }
 
             $code = is_array($result) ? $result['code'] : $result;
