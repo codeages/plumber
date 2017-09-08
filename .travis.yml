@@ -8,8 +8,11 @@ php:
   - '7.0'
   - '7.1'
 
-script: 
+install:
+  - pecl install swoole
   - composer install
+
+script: 
   - phpunit
 
 cache:
