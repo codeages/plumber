@@ -53,11 +53,11 @@ class WorkerProcess
             try {
                 $result = $executor->execute($job);
             } catch (\Exception $e) {
-                $message = sprintf('tube(%s, #%d): execute job #%d exception, `%s`', $this->tubeName, $process->pid, $job['id'], $e->getMessage());
+                $message = sprintf('tube(%s, #%d): execute job #%d exception, `%s`', $this->tubeName, $process->pid, $job['id'], $e->getTraceAsString());
                 $logger->error($message, $job);
                 throw $e;
             } catch (\Throwable $e) {
-                $message = sprintf('tube(%s, #%d): execute job #%d error, `%s`', $this->tubeName, $process->pid, $job['id'], $e->getMessage());
+                $message = sprintf('tube(%s, #%d): execute job #%d error, `%s`', $this->tubeName, $process->pid, $job['id'], $e->getTraceAsString());
                 $logger->error($message, $job);
                 throw $e;
             }

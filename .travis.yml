@@ -1,0 +1,16 @@
+language: php
+
+branches:
+  - master
+
+php:
+  - '5.5'
+  - '7.0'
+  - '7.1'
+
+script: 
+  - phpunit
+
+cache:
+  directories:
+    - $HOME/.composer/cache
