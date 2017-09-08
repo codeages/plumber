@@ -9,6 +9,7 @@ php:
   - '7.1'
 
 install:
+  - sudo apt-get install -qq --force-yes beanstalkd
   - pecl install swoole
   - composer install
 
