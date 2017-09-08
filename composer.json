@@ -29,6 +29,7 @@
     },
     "bin": ["bin/plumber"],
     "require-dev": {
-        "eaglewu/swoole-ide-helper": "dev-master"
+        "eaglewu/swoole-ide-helper": "dev-master",
+        "phpunit/phpunit": "^4|^5|6"
     }
 }
