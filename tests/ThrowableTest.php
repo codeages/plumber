@@ -16,7 +16,7 @@ class WorkerProcessTest extends TestCase
     public function test_ThrowableException()
     {
         try {
-            throw \RuntimeException("some exception");
+            throw new \RuntimeException("some exception");
         } catch (\Exception $e) {
 
         } catch (\Throwable $e) {
