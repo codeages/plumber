@@ -25,7 +25,7 @@
         "docopt/docopt": "^1",
         "codeages/beanstalk-client" : "^0.1",
         "codeages/rate-limiter": "^0.2",
-        "monolog/monolog": "^1.22"
+        "monolog/monolog": "^1"
     },
     "bin": ["bin/plumber"],
     "require-dev": {
